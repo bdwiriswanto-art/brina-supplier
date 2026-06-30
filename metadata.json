@@ -1,0 +1,6 @@
+{
+  "name": "Order Putih Telur Otomatis",
+  "description": "Jadwal harian order putih telur dengan supplier, integrasi Google Sheets, dan notifikasi WhatsApp otomatis saat stok habis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
