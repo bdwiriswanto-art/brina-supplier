@@ -8,7 +8,7 @@ import { format, subDays } from 'date-fns';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend } from 'recharts';
 
 export function Dashboard() {
-  const { state, updateStock, setCurrentStock, setLowStockThreshold, addOrder, syncToSheets } = useApp();
+  const { state, updateStock, setCurrentStock, setLowStockThreshold, addOrder, syncToSheets, forceBackendSync } = useApp();
   const [useAmount, setUseAmount] = useState<number>(5);
   const [incomingAmount, setIncomingAmount] = useState<number>(0);
   const [editStock, setEditStock] = useState<string>(state.currentStock.toString());
@@ -272,16 +272,10 @@ export function Dashboard() {
                   id="currentStock" 
                   type="number" 
                   value={editStock} 
-                  onChange={(e) => {
-                    setEditStock(e.target.value);
-                    if (e.target.value !== '') {
-                      setCurrentStock(Number(e.target.value));
-                    }
-                  }} 
+                  onChange={(e) => setEditStock(e.target.value)} 
                   onBlur={() => {
                     if (editStock === '') {
                       setEditStock('0');
-                      setCurrentStock(0);
                     }
                   }}
                   className="font-mono text-sm border-slate-200 focus-visible:ring-blue-600 w-full"
@@ -293,21 +287,26 @@ export function Dashboard() {
                   id="threshold" 
                   type="number" 
                   value={editThreshold} 
-                  onChange={(e) => {
-                    setEditThreshold(e.target.value);
-                    if (e.target.value !== '') {
-                      setLowStockThreshold(Number(e.target.value));
-                    }
-                  }} 
+                  onChange={(e) => setEditThreshold(e.target.value)} 
                   onBlur={() => {
                     if (editThreshold === '') {
                       setEditThreshold('0');
-                      setLowStockThreshold(0);
                     }
                   }}
                   className="font-mono text-sm border-slate-200 focus-visible:ring-blue-600 w-full"
                 />
               </div>
+            </div>
+            <div className="flex justify-end pt-2">
+              <Button 
+                onClick={() => {
+                  setCurrentStock(Number(editStock));
+                  setLowStockThreshold(Number(editThreshold));
+                }} 
+                className="bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold uppercase tracking-widest shadow-sm"
+              >
+                Simpan Perubahan Master
+              </Button>
             </div>
           </div>
         </div>

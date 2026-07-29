@@ -43,6 +43,7 @@ type AppContextType = {
   setFonnteToken: (token: string) => void;
   toggleAutoOrder: () => void;
   syncToSheets: () => Promise<void>;
+  forceBackendSync: () => Promise<void>;
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -273,6 +274,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
+  const forceBackendSync = async () => {
+    (window as any).__IS_SYNCING = true;
+    try {
+      await fetch('/api/stock', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          currentStock: state.currentStock,
+          lowStockThreshold: state.lowStockThreshold,
+          dailyRequirement: state.dailyRequirement,
+          fonnteToken: state.fonnteToken,
+          suppliers: state.suppliers,
+          orders: state.orders
+        })
+      });
+    } catch (err) {
+      console.error("Gagal sync ke backend:", err);
+    } finally {
+      (window as any).__IS_SYNCING = false;
+    }
+  };
+
   return (
     <AppContext.Provider value={{
       state,
@@ -290,7 +315,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setAppsScriptUrl,
       setFonnteToken,
       toggleAutoOrder,
-      syncToSheets
+      syncToSheets,
+      forceBackendSync
     }}>
       {!isLoaded ? (
         <div className="min-h-screen flex items-center justify-center bg-slate-50">
