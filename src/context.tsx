@@ -54,20 +54,24 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const fetchState = async () => {
+      if ((window as any).__IS_SYNCING) return;
       try {
         const res = await fetch('/api/stock');
         if (!res.ok) throw new Error("Backend response not OK");
         const data = await res.json();
         if (data && data.currentStock !== undefined) {
           setState(prev => {
+            const clean = (arr: any[]) => arr.map(({ createdAt, updatedAt, ...rest }) => rest);
             if (
               prev.currentStock !== data.currentStock ||
               prev.lowStockThreshold !== data.lowStockThreshold ||
               prev.dailyRequirement !== data.dailyRequirement ||
               prev.fonnteToken !== data.fonnteToken ||
-              JSON.stringify(prev.suppliers) !== JSON.stringify(data.suppliers) ||
-              JSON.stringify(prev.orders) !== JSON.stringify(data.orders)
+              JSON.stringify(clean(prev.suppliers)) !== JSON.stringify(clean(data.suppliers)) ||
+              JSON.stringify(clean(prev.orders)) !== JSON.stringify(clean(data.orders))
             ) {
+              // Set a flag to prevent the next useEffect from POSTing back
+              (window as any).__IS_NETWORK_UPDATE = true;
               return {
                 ...prev,
                 currentStock: data.currentStock ?? prev.currentStock,
@@ -101,8 +105,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     fetchState();
     
-    // Poll for changes every 3 seconds to ensure devices stay in sync
-    const interval = setInterval(fetchState, 3000);
+    // Poll for changes every 1 second to ensure devices stay in sync fast
+    const interval = setInterval(fetchState, 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -112,24 +116,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('eggWhiteAppState', JSON.stringify(state));
     
     if (backendReady) {
-      // Sync ke backend server agar Cron Job (bot WA) tahu stok terbaru
-      const syncBackend = async () => {
-        fetch('/api/stock', {
-          method: 'POST',
-          headers: { 
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            currentStock: state.currentStock,
-            lowStockThreshold: state.lowStockThreshold,
-            dailyRequirement: state.dailyRequirement,
-            fonnteToken: state.fonnteToken,
-            suppliers: state.suppliers,
-            orders: state.orders
-          })
-        }).catch(err => console.error("Gagal sync ke backend:", err));
-      };
-      syncBackend();
+      if ((window as any).__IS_NETWORK_UPDATE) {
+        // Skip posting back to the server if this was a network update
+        (window as any).__IS_NETWORK_UPDATE = false;
+      } else {
+        // Sync ke backend server agar Cron Job (bot WA) tahu stok terbaru
+        const syncBackend = async () => {
+          (window as any).__IS_SYNCING = true;
+          try {
+            await fetch('/api/stock', {
+              method: 'POST',
+              headers: { 
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                currentStock: state.currentStock,
+                lowStockThreshold: state.lowStockThreshold,
+                dailyRequirement: state.dailyRequirement,
+                fonnteToken: state.fonnteToken,
+                suppliers: state.suppliers,
+                orders: state.orders
+              })
+            });
+          } catch (err) {
+            console.error("Gagal sync ke backend:", err);
+          } finally {
+            (window as any).__IS_SYNCING = false;
+          }
+        };
+        syncBackend();
+      }
     }
 
     // Sinkronisasi otomatis di background setiap ada perubahan stok atau order (Google Sheets)

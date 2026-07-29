@@ -26,7 +26,7 @@ export function Dashboard() {
   const stockPercentage = Math.min(100, Math.max(0, (state.currentStock / (state.lowStockThreshold * 3)) * 100));
 
   const chartData = useMemo(() => {
-    // Generate mock historical data and append current stock to make it look real-time
+    // Generate deterministic mock historical data and append current stock to make it look real-time
     const data = [];
     let mockStock = state.currentStock + 40;
     for (let i = 6; i >= 1; i--) {
@@ -34,7 +34,8 @@ export function Dashboard() {
         name: format(subDays(new Date(), i), 'MMM dd'),
         stock: Math.max(0, mockStock),
       });
-      mockStock -= Math.floor(Math.random() * 15);
+      // Deterministic decrease based on index to ensure all devices show same chart
+      mockStock -= (i * 2 + 5);
     }
     data.push({
       name: 'Today',
