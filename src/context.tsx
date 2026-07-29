@@ -50,11 +50,13 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(initialState);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [backendReady, setBackendReady] = useState(false);
 
   useEffect(() => {
     const fetchState = async () => {
       try {
         const res = await fetch('/api/stock');
+        if (!res.ok) throw new Error("Backend response not OK");
         const data = await res.json();
         if (data && data.currentStock !== undefined) {
           setState(prev => ({
@@ -63,14 +65,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             lowStockThreshold: data.lowStockThreshold ?? prev.lowStockThreshold,
             dailyRequirement: data.dailyRequirement ?? prev.dailyRequirement,
             fonnteToken: data.fonnteToken ?? prev.fonnteToken,
-            suppliers: data.suppliers?.length ? data.suppliers : prev.suppliers,
-            orders: data.orders || prev.orders,
+            suppliers: data.suppliers || [],
+            orders: data.orders || [],
           }));
+          setBackendReady(true);
         } else {
           const saved = localStorage.getItem('eggWhiteAppState');
           if (saved) {
             try { setState({ ...initialState, ...JSON.parse(saved) }); } catch(e) {}
           }
+          // Backend returned empty/invalid, but reachable
+          setBackendReady(true);
         }
       } catch (err) {
         console.error("Gagal load dari backend", err);
@@ -78,6 +83,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (saved) {
           try { setState({ ...initialState, ...JSON.parse(saved) }); } catch(e) {}
         }
+        // Do not setBackendReady to true to prevent wiping backend on transient error
       } finally {
         setIsLoaded(true);
       }
@@ -90,25 +96,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     localStorage.setItem('eggWhiteAppState', JSON.stringify(state));
     
-    // Sync ke backend server agar Cron Job (bot WA) tahu stok terbaru
-    const syncBackend = async () => {
-      fetch('/api/stock', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          currentStock: state.currentStock,
-          lowStockThreshold: state.lowStockThreshold,
-          dailyRequirement: state.dailyRequirement,
-          fonnteToken: state.fonnteToken,
-          suppliers: state.suppliers,
-          orders: state.orders
-        })
-      }).catch(err => console.error("Gagal sync ke backend:", err));
-    };
-
-    syncBackend();
+    if (backendReady) {
+      // Sync ke backend server agar Cron Job (bot WA) tahu stok terbaru
+      const syncBackend = async () => {
+        fetch('/api/stock', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            currentStock: state.currentStock,
+            lowStockThreshold: state.lowStockThreshold,
+            dailyRequirement: state.dailyRequirement,
+            fonnteToken: state.fonnteToken,
+            suppliers: state.suppliers,
+            orders: state.orders
+          })
+        }).catch(err => console.error("Gagal sync ke backend:", err));
+      };
+      syncBackend();
+    }
 
     // Sinkronisasi otomatis di background setiap ada perubahan stok atau order (Google Sheets)
     if (state.appsScriptUrl) {
@@ -254,7 +261,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       toggleAutoOrder,
       syncToSheets
     }}>
-      {children}
+      {!isLoaded ? (
+        <div className="min-h-screen flex items-center justify-center bg-slate-50">
+          <div className="flex flex-col items-center space-y-4">
+            <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-slate-500 font-medium">Memuat data...</p>
+          </div>
+        </div>
+      ) : children}
     </AppContext.Provider>
   );
 }

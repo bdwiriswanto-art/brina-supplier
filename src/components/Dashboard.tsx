@@ -2,7 +2,7 @@ import { useApp } from '../context';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowDown, Send, Activity } from 'lucide-react';
+import { ArrowDown, ArrowUp, Send, Activity } from 'lucide-react';
 import { useState, useMemo, useEffect } from 'react';
 import { format, subDays } from 'date-fns';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Legend } from 'recharts';
@@ -10,6 +10,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 export function Dashboard() {
   const { state, updateStock, setCurrentStock, setLowStockThreshold, addOrder, syncToSheets } = useApp();
   const [useAmount, setUseAmount] = useState<number>(5);
+  const [incomingAmount, setIncomingAmount] = useState<number>(0);
   const [editStock, setEditStock] = useState<string>(state.currentStock.toString());
   const [editThreshold, setEditThreshold] = useState<string>(state.lowStockThreshold.toString());
 
@@ -72,6 +73,13 @@ export function Dashboard() {
       const message = `Halo ${supplierName}, saya ingin order putih telur sebanyak ${orderQuantity} kg untuk hari ini. Mohon info ketersediaan.`;
       const waUrl = `https://wa.me/${targetPhone}?text=${encodeURIComponent(message)}`;
       window.open(waUrl, '_blank');
+    }
+  };
+
+  const handleIncomingStock = () => {
+    if (incomingAmount > 0) {
+      updateStock(incomingAmount);
+      setIncomingAmount(0);
     }
   };
 
@@ -238,48 +246,67 @@ export function Dashboard() {
           <div className="p-4 border-b border-slate-100 flex items-center justify-between">
             <h2 className="text-sm font-bold text-slate-800 uppercase tracking-tighter">Pengaturan Data Master</h2>
           </div>
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="p-6 flex flex-col gap-6">
             <div className="space-y-2">
-              <Label htmlFor="currentStock" className="text-xs font-bold text-slate-500 uppercase tracking-widest">Stok Aktual Saat Ini (kg)</Label>
-              <Input 
-                id="currentStock" 
-                type="number" 
-                value={editStock} 
-                onChange={(e) => {
-                  setEditStock(e.target.value);
-                  if (e.target.value !== '') {
-                    setCurrentStock(Number(e.target.value));
-                  }
-                }} 
-                onBlur={() => {
-                  if (editStock === '') {
-                    setEditStock('0');
-                    setCurrentStock(0);
-                  }
-                }}
-                className="font-mono text-sm border-slate-200 focus-visible:ring-blue-600 w-full"
-              />
+              <Label htmlFor="incomingStock" className="text-xs font-bold text-slate-500 uppercase tracking-widest">Barang Datang Hari Ini (kg)</Label>
+              <div className="flex space-x-2">
+                <Input 
+                  id="incomingStock" 
+                  type="number" 
+                  value={incomingAmount || ''} 
+                  onChange={(e) => setIncomingAmount(Number(e.target.value))} 
+                  className="font-mono text-sm border-slate-200 focus-visible:ring-blue-600 max-w-xs"
+                  placeholder="Jumlah (kg)"
+                />
+                <Button onClick={handleIncomingStock} disabled={incomingAmount <= 0 || isNaN(incomingAmount)} className="bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold uppercase tracking-widest">
+                  <ArrowUp className="mr-2 h-3 w-3" /> Tambah Stok
+                </Button>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="threshold" className="text-xs font-bold text-slate-500 uppercase tracking-widest">Batas Minimum (kg)</Label>
-              <Input 
-                id="threshold" 
-                type="number" 
-                value={editThreshold} 
-                onChange={(e) => {
-                  setEditThreshold(e.target.value);
-                  if (e.target.value !== '') {
-                    setLowStockThreshold(Number(e.target.value));
-                  }
-                }} 
-                onBlur={() => {
-                  if (editThreshold === '') {
-                    setEditThreshold('0');
-                    setLowStockThreshold(0);
-                  }
-                }}
-                className="font-mono text-sm border-slate-200 focus-visible:ring-blue-600 w-full"
-              />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+              <div className="space-y-2">
+                <Label htmlFor="currentStock" className="text-xs font-bold text-slate-500 uppercase tracking-widest">Stok Aktual Saat Ini (kg)</Label>
+                <Input 
+                  id="currentStock" 
+                  type="number" 
+                  value={editStock} 
+                  onChange={(e) => {
+                    setEditStock(e.target.value);
+                    if (e.target.value !== '') {
+                      setCurrentStock(Number(e.target.value));
+                    }
+                  }} 
+                  onBlur={() => {
+                    if (editStock === '') {
+                      setEditStock('0');
+                      setCurrentStock(0);
+                    }
+                  }}
+                  className="font-mono text-sm border-slate-200 focus-visible:ring-blue-600 w-full"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="threshold" className="text-xs font-bold text-slate-500 uppercase tracking-widest">Batas Minimum (kg)</Label>
+                <Input 
+                  id="threshold" 
+                  type="number" 
+                  value={editThreshold} 
+                  onChange={(e) => {
+                    setEditThreshold(e.target.value);
+                    if (e.target.value !== '') {
+                      setLowStockThreshold(Number(e.target.value));
+                    }
+                  }} 
+                  onBlur={() => {
+                    if (editThreshold === '') {
+                      setEditThreshold('0');
+                      setLowStockThreshold(0);
+                    }
+                  }}
+                  className="font-mono text-sm border-slate-200 focus-visible:ring-blue-600 w-full"
+                />
+              </div>
             </div>
           </div>
         </div>
