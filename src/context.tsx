@@ -59,36 +59,51 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (!res.ok) throw new Error("Backend response not OK");
         const data = await res.json();
         if (data && data.currentStock !== undefined) {
-          setState(prev => ({
-            ...prev,
-            currentStock: data.currentStock ?? prev.currentStock,
-            lowStockThreshold: data.lowStockThreshold ?? prev.lowStockThreshold,
-            dailyRequirement: data.dailyRequirement ?? prev.dailyRequirement,
-            fonnteToken: data.fonnteToken ?? prev.fonnteToken,
-            suppliers: data.suppliers || [],
-            orders: data.orders || [],
-          }));
+          setState(prev => {
+            if (
+              prev.currentStock !== data.currentStock ||
+              prev.lowStockThreshold !== data.lowStockThreshold ||
+              prev.dailyRequirement !== data.dailyRequirement ||
+              prev.fonnteToken !== data.fonnteToken ||
+              JSON.stringify(prev.suppliers) !== JSON.stringify(data.suppliers) ||
+              JSON.stringify(prev.orders) !== JSON.stringify(data.orders)
+            ) {
+              return {
+                ...prev,
+                currentStock: data.currentStock ?? prev.currentStock,
+                lowStockThreshold: data.lowStockThreshold ?? prev.lowStockThreshold,
+                dailyRequirement: data.dailyRequirement ?? prev.dailyRequirement,
+                fonnteToken: data.fonnteToken ?? prev.fonnteToken,
+                suppliers: data.suppliers || [],
+                orders: data.orders || [],
+              };
+            }
+            return prev;
+          });
           setBackendReady(true);
         } else {
           const saved = localStorage.getItem('eggWhiteAppState');
-          if (saved) {
+          if (saved && !backendReady) {
             try { setState({ ...initialState, ...JSON.parse(saved) }); } catch(e) {}
           }
-          // Backend returned empty/invalid, but reachable
           setBackendReady(true);
         }
       } catch (err) {
         console.error("Gagal load dari backend", err);
         const saved = localStorage.getItem('eggWhiteAppState');
-        if (saved) {
+        if (saved && !isLoaded) {
           try { setState({ ...initialState, ...JSON.parse(saved) }); } catch(e) {}
         }
-        // Do not setBackendReady to true to prevent wiping backend on transient error
       } finally {
         setIsLoaded(true);
       }
     };
+
     fetchState();
+    
+    // Poll for changes every 3 seconds to ensure devices stay in sync
+    const interval = setInterval(fetchState, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
